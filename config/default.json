@@ -1,0 +1,17 @@
+{
+  "host": "127.0.0.1",
+  "port": 8765,
+  "ollama_host": "http://127.0.0.1:11434",
+  "model": "llama3.2:3b",
+  "vision_model": "moondream:latest",
+  "followup_seconds": 15,
+  "tts_enabled": true,
+  "tts_rate": 200,
+  "user_name": "Gustavo",
+  "auto_start": true,
+  "num_predict": -1,
+  "num_ctx": 8192,
+  "reason_num_predict": -1,
+  "reason_num_ctx": 8192,
+  "code_model": "qwen2.5-coder:3b"
+}
