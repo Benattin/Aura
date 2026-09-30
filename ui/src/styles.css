@@ -612,6 +612,9 @@ body {
 .cmd-news:hover { color: var(--gold); }
 .digest-text { line-height: 1.5; white-space: pre-wrap; }
 .cfg-row { display: grid; gap: 6px; margin-bottom: 8px; }
+.cfg-toggle { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; cursor: pointer; }
+.cfg-toggle input { accent-color: var(--gold); width: 16px; height: 16px; }
+.cfg-row select,
 .cfg-row input {
   background: var(--bg);
   border: 1px solid var(--border);

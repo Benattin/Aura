@@ -13,5 +13,6 @@
   "num_ctx": 8192,
   "reason_num_predict": -1,
   "reason_num_ctx": 8192,
-  "code_model": "qwen2.5-coder:3b"
+  "code_model": "qwen2.5-coder:3b",
+  "economy_mode": true
 }

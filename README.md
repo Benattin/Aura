@@ -42,6 +42,9 @@ Configure na aba ⚙ do painel (dados ficam só no `localStorage` do navegador):
 
 - **Agenda**: link iCal secreto do Google Agenda (suporta eventos recorrentes).
 - **Gmail**: e-mail + [senha de app](https://myaccount.google.com/apppasswords).
+- **Motor**: troca o modelo de conversa e o de código entre os instalados no Ollama, sem reiniciar.
+  O **modo economia** (ligado por padrão) responde em uma passada só e faz a triagem de e-mails por
+  regras locais. Tudo é salvo em `config/local.json`.
 
 ### Comandos de voz rápidos (respondidos sem LLM)
 

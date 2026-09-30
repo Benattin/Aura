@@ -113,17 +113,32 @@ def create_app(settings: Settings | None = None, *, on_show=None, on_reload=None
 
     @app.post("/api/triage")
     async def triage_emails(body: dict = Body(...)) -> dict:
-        from aura.triage import heuristic_triage, triage_batch
-
         emails = body.get("emails") or []
+        return {"items": await hub().triage(emails) if emails else []}
+
+    @app.get("/api/models")
+    async def list_models() -> dict:
         h = hub()
-        if not emails:
-            return {"items": []}
         try:
-            items = await triage_batch(h.llm, emails)
+            installed = await h.llm.list_models()
         except Exception:
-            items = heuristic_triage(emails)
-        return {"items": items}
+            installed = []
+        return {
+            "installed": installed,
+            "model": h.settings.model,
+            "codeModel": h.settings.code_model,
+            "economy": h.settings.economy_mode,
+        }
+
+    @app.post("/api/settings")
+    async def update_settings(body: dict = Body(...)) -> dict:
+        try:
+            applied = await hub().apply_settings(body)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
+        except Exception:
+            return {"ok": False, "error": "Ollama indisponível, senhor."}
+        return {"ok": True, "applied": applied}
 
     @app.post("/api/digest")
     async def morning_digest(body: dict = Body(...)) -> dict:

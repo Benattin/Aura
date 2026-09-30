@@ -63,6 +63,14 @@ class OllamaClient:
         except httpx.HTTPError:
             pass
 
+    async def list_models(self) -> list[str]:
+        client = await self._http()
+        resp = await client.get(f"{self.host}/api/tags", timeout=5)
+        resp.raise_for_status()
+        names = sorted(m.get("name", "") for m in resp.json().get("models", []) if m.get("name"))
+        self._known = set(names)
+        return names
+
     async def has_model(self, name: str, *, refresh: bool = False) -> bool:
         if refresh:
             self._known = None

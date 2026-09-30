@@ -27,6 +27,7 @@ class Settings:
     reason_num_ctx: int = 8192
     code_model: str = "qwen2.5-coder:3b"
     auto_start: bool = True
+    economy_mode: bool = True
 
 
 def data_dir() -> Path:
@@ -62,6 +63,18 @@ def load_settings() -> Settings:
         data.update(json.loads(local.read_text(encoding="utf-8")))
     known = {k: v for k, v in data.items() if k in Settings.__dataclass_fields__}
     return Settings(**known)
+
+
+def save_local(updates: dict) -> None:
+    local = ROOT / "config" / "local.json"
+    data: dict = {}
+    if local.exists():
+        try:
+            data = json.loads(local.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+    data.update(updates)
+    local.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def system_prompt(settings: Settings, extra: str = "") -> str:

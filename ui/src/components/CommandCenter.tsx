@@ -136,17 +136,14 @@ export default function CommandCenter({ send, onDigestText }: Props) {
     setEmailsCfg([...emailsCfg, { id: `em-${Date.now()}`, label: "Gmail", color: AURA_COLORS[i % AURA_COLORS.length], email: "", appPassword: "" }]);
   };
 
-  if (!online) {
-    return (
-      <section className="cmd-offline">
-        <p>ANTENA OFFLINE — abra <code>start-antenna.bat</code> (ou <code>node antenna/server.js</code>)</p>
-        <p className="muted">A AURA continua funcionando (voz, chat, memória).</p>
-      </section>
-    );
-  }
-
   return (
     <section className="command-center">
+      {!online && (
+        <div className="cmd-offline">
+          <p>ANTENA OFFLINE — abra <code>start-antenna.bat</code> (ou <code>node antenna/server.js</code>)</p>
+          <p className="muted">A AURA continua funcionando (voz, chat, memória).</p>
+        </div>
+      )}
       <nav className="cmd-tabs">
         {(["agenda", "emails", "news", "digest", "settings"] as Tab[]).map((t) => (
           <button key={t} type="button" className={tab === t ? "on" : ""} onClick={() => { setTab(t); if (t !== "settings") refreshAll(); }}>
@@ -210,6 +207,7 @@ export default function CommandCenter({ send, onDigestText }: Props) {
 
       {tab === "settings" && (
         <div className="cmd-panel settings">
+          <EngineSettings />
           <h3>Agendas Google (iCal)</h3>
           <p className="hint">Google Agenda → ⚙ → agenda → Integrar → Endereço secreto iCal. Salvo só aqui.</p>
           {cals.map((c, i) => (
@@ -232,6 +230,58 @@ export default function CommandCenter({ send, onDigestText }: Props) {
         </div>
       )}
     </section>
+  );
+}
+
+type Engine = { installed: string[]; model: string; codeModel: string; economy: boolean };
+
+function EngineSettings() {
+  const [engine, setEngine] = useState<Engine | null>(null);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    fetch("/api/models").then((r) => r.json()).then(setEngine).catch(() => setStatus("Não consegui falar com a AURA."));
+  }, []);
+
+  const apply = async (patch: Record<string, unknown>) => {
+    setStatus("Aplicando…");
+    const r = await fetch("/api/settings", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+    }).then((x) => x.json()).catch(() => ({ ok: false, error: "Falha de rede." }));
+    if (!r.ok) { setStatus(r.error); return; }
+    setEngine((e) => e && {
+      ...e,
+      model: (patch.model as string) ?? e.model,
+      codeModel: (patch.code_model as string) ?? e.codeModel,
+      economy: (patch.economy_mode as boolean) ?? e.economy,
+    });
+    setStatus("Salvo.");
+  };
+
+  if (!engine) return <p className="muted">{status || "Carregando modelos…"}</p>;
+  if (!engine.installed.length) return <p className="muted">Ollama offline ou sem modelos instalados.</p>;
+
+  const options = (current: string) => (engine.installed.includes(current) ? engine.installed : [current, ...engine.installed])
+    .map((m) => <option key={m} value={m}>{m}</option>);
+
+  return (
+    <>
+      <h3>Motor</h3>
+      <label className="cfg-row">
+        <span className="muted">Modelo de conversa</span>
+        <select value={engine.model} onChange={(e) => apply({ model: e.target.value })}>{options(engine.model)}</select>
+      </label>
+      <label className="cfg-row">
+        <span className="muted">Modelo de código</span>
+        <select value={engine.codeModel} onChange={(e) => apply({ code_model: e.target.value })}>{options(engine.codeModel)}</select>
+      </label>
+      <label className="cfg-toggle">
+        <input type="checkbox" checked={engine.economy} onChange={(e) => apply({ economy_mode: e.target.checked })} />
+        <span>Modo economia</span>
+      </label>
+      <p className="hint">Economia: respostas em uma passada (sem raciocínio em duas etapas) e triagem de e-mails por regras locais. Mais rápido, menos preciso.</p>
+      {status && <p className="hint">{status}</p>}
+    </>
   );
 }
 

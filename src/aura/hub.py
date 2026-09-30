@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from aura.config import Settings, system_prompt
+from aura.config import Settings, save_local, system_prompt
 from aura.llm import LlmError, OllamaClient
 from aura.session import Session
 from aura.state import LABELS, AuraState, StateMachine, TransitionError
@@ -72,6 +72,7 @@ class Hub:
             "label": LABELS[self.machine.state], "model": self.settings.model,
             "activeModel": self._active_model,
             "codeModel": self.settings.code_model,
+            "economy": self.settings.economy_mode,
             "privacy": "local", "mic": self.mic_on, "tts": self.speech.available(),
             "error": self.error_detail, "partial": self.partial, "reply": self.reply,
             "pendingModel": self.pending_model, "pendingName": self.pending_pull or self.settings.model, "followup": self.session.in_followup(),
@@ -259,7 +260,7 @@ class Hub:
             if wants_code(text):
                 await self._code_chat(text)
                 return
-            if needs_reasoning(text):
+            if self._deep(text):
                 await self._reason_chat(text)
                 return
             await self._narrate(
@@ -484,12 +485,46 @@ class Hub:
     async def _code_chat(self, text: str) -> None:
         prompt = self._prompt()
         opts = await self._code_gen()
-        if needs_reasoning(text):
+        if self._deep(text):
             await self._reason_chat(text, prompt_extra="", opts=opts)
             return
         await self._narrate(
             self.llm.chat(self.session.llm_messages(prompt, max_ctx=self._ctx()), **opts)
         )
+
+    def _deep(self, text: str) -> bool:
+        return not self.settings.economy_mode and needs_reasoning(text)
+
+    async def apply_settings(self, updates: dict[str, Any]) -> dict[str, Any]:
+        """Troca modelo/código/economia sem reiniciar e persiste em config/local.json."""
+        installed = await self.llm.list_models()
+        clean: dict[str, Any] = {}
+        for key in ("model", "code_model"):
+            name = updates.get(key)
+            if name is not None:
+                if name not in installed:
+                    raise ValueError(f"Modelo não instalado no Ollama: {name}")
+                clean[key] = name
+        if "economy_mode" in updates:
+            clean["economy_mode"] = bool(updates["economy_mode"])
+        for key, value in clean.items():
+            setattr(self.settings, key, value)
+        if "model" in clean:
+            self.llm.model = clean["model"]
+            self._active_model = clean["model"]
+            asyncio.create_task(self.llm.warmup(clean["model"]))
+        if clean:
+            save_local(clean)
+            await self._broadcast()
+        return clean
+
+    async def triage(self, emails: list) -> list:
+        if self.settings.economy_mode:
+            return heuristic_triage(emails)
+        try:
+            return await triage_batch(self.llm, emails)
+        except Exception:
+            return heuristic_triage(emails)
 
     def _chat_opts(self) -> dict:
         self._active_model = self.settings.model
@@ -657,11 +692,7 @@ class Hub:
         if not emails:
             await self.emit({"type": "triage_result", "items": []})
             return
-        try:
-            items = await triage_batch(self.llm, emails)
-        except Exception:
-            items = heuristic_triage(emails)
-        await self.emit({"type": "triage_result", "items": items})
+        await self.emit({"type": "triage_result", "items": await self.triage(emails)})
 
     async def _run_digest(self, pkg: dict[str, Any]) -> None:
         await self._go(AuraState.THINKING)
